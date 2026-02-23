@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\SystemConfig;
+use Illuminate\Support\Facades\Http;
+
+class MpesaService
+{
+    private string $baseUrl;
+    private ?string $consumerKey;
+    private ?string $consumerSecret;
+    private ?string $shortcode;   // Paybill (for password generation)
+    private ?string $tillno;      // BuyGoods Till Number
+    private ?string $passkey;
+    private ?string $callbackUrl;
+
+    public function __construct()
+    {
+        $env = SystemConfig::getValue('mpesa_env', 'sandbox');
+
+        $this->baseUrl = $env === 'live'
+            ? 'https://api.safaricom.co.ke'
+            : 'https://sandbox.safaricom.co.ke';
+
+        $this->consumerKey    = SystemConfig::getValue('mpesa_consumer_key');
+        $this->consumerSecret = SystemConfig::getValue('mpesa_consumer_secret');
+        $this->shortcode      = SystemConfig::getValue('mpesa_shortcode');
+        $this->tillno         = SystemConfig::getValue('mpesa_till_no');
+        $this->passkey        = SystemConfig::getValue('mpesa_passkey');
+        $this->callbackUrl    = SystemConfig::getValue('mpesa_callback_url');
+    }
+
+    private function getAccessToken(): ?string
+    {
+        $response = Http::withBasicAuth($this->consumerKey, $this->consumerSecret)
+            ->get($this->baseUrl . '/oauth/v1/generate?grant_type=client_credentials');
+
+        return $response->json()['access_token'] ?? null;
+    }
+
+    public function stkPush(string $phone, float $amount, string $reference = 'Payment'): array
+    {
+        // Convert M-Pesa number to 2547XXXXXXXX format
+        $phone = preg_replace('/^0/', '254', $phone);
+        $phone = ltrim($phone, '+');
+
+        $timestamp = now()->format('YmdHis');
+        $password  = base64_encode($this->shortcode . $this->passkey . $timestamp);
+
+        $token = $this->getAccessToken();
+
+        $transactionType = SystemConfig::getValue('mpesa_transaction_type', 'CustomerBuyGoodsOnline');
+
+        $payload = [
+            'BusinessShortCode' => $this->shortcode,
+            'Password'          => $password,
+            'Timestamp'         => $timestamp,
+            'TransactionType'   => $transactionType,
+            'Amount'            => $amount,
+            'PartyA'            => $phone,
+            'PartyB'            => $this->tillno,
+            'PhoneNumber'       => $phone,
+            'CallBackURL'       => $this->callbackUrl,
+            'AccountReference'  => $reference,
+            'TransactionDesc'   => $reference,
+        ];
+
+        $response = Http::withToken($token)
+            ->post($this->baseUrl . '/mpesa/stkpush/v1/processrequest', $payload);
+
+        return $response->json();
+    }
+
+    /**
+     * Vendor-specific STK push using per-vendor configuration.
+     */
+    public function stkPushWithConfig(array $config, string $phone, float $amount, string $reference = 'Payment'): array
+    {
+        $env = $config['env'] ?? 'sandbox';
+
+        $baseUrl = $env === 'live'
+            ? 'https://api.safaricom.co.ke'
+            : 'https://sandbox.safaricom.co.ke';
+
+        $consumerKey    = $config['consumer_key'] ?? null;
+        $consumerSecret = $config['consumer_secret'] ?? null;
+        $shortcode      = $config['shortcode'] ?? null;
+        $tillno         = $config['till_no'] ?? null;
+        $passkey        = $config['passkey'] ?? null;
+        $callbackUrl    = $config['callback_url'] ?? null;
+
+        // Convert M-Pesa number to 2547XXXXXXXX format
+        $phone = preg_replace('/^0/', '254', $phone);
+        $phone = ltrim($phone, '+');
+
+        $timestamp = now()->format('YmdHis');
+        $password  = base64_encode($shortcode . $passkey . $timestamp);
+
+        $responseToken = Http::withBasicAuth($consumerKey, $consumerSecret)
+            ->get($baseUrl . '/oauth/v1/generate?grant_type=client_credentials');
+
+        $token = $responseToken->json()['access_token'] ?? null;
+
+        $transactionType = $config['transaction_type'] ?? SystemConfig::getValue('mpesa_transaction_type', 'CustomerBuyGoodsOnline');
+
+        $payload = [
+            'BusinessShortCode' => $shortcode,
+            'Password'          => $password,
+            'Timestamp'         => $timestamp,
+            'TransactionType'   => $transactionType,
+            'Amount'            => $amount,
+            'PartyA'            => $phone,
+            'PartyB'            => $tillno,
+            'PhoneNumber'       => $phone,
+            'CallBackURL'       => $callbackUrl,
+            'AccountReference'  => $reference,
+            'TransactionDesc'   => $reference,
+        ];
+
+        $response = Http::withToken($token)
+            ->post($baseUrl . '/mpesa/stkpush/v1/processrequest', $payload);
+
+        return $response->json();
+    }
+}
+
