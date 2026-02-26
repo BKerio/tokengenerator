@@ -1,4 +1,4 @@
-# Church Management System - Authentication Server
+# Tokenpap system
 
 This Laravel application provides authentication services for the Church Management System webclient.
 
