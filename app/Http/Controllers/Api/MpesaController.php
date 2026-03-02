@@ -43,6 +43,14 @@ class MpesaController extends Controller
 
         $response = $this->mpesa->stkPush($validated['phone'], (float) $validated['amount'], $reference);
 
+        if (isset($response['errorCode']) || isset($response['errorMessage']) || (isset($response['ResponseCode']) && $response['ResponseCode'] !== '0')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $response['errorMessage'] ?? ($response['customerMessage'] ?? 'M-Pesa API Error'),
+                'response' => $response,
+            ], 400);
+        }
+
         if (isset($response['CheckoutRequestID'])) {
             $this->storeAccountReference($response['CheckoutRequestID'], $reference);
         }

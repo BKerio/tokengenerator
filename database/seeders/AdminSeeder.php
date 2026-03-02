@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\User;
+use App\Models\Admin;
 use Illuminate\Support\Facades\Hash;
 
 class AdminSeeder extends Seeder
@@ -14,13 +14,14 @@ class AdminSeeder extends Seeder
     public function run(): void
     {
         // Create default admin user
-        User::updateOrCreate(
+        Admin::updateOrCreate(
             ['email' => 'admin@tokenapp.com'],
             [
-                'name' => 'System Administrator',
-                'username' => 'admin',
-                'email' => 'admin@tokenapp.com',
-                'password' => Hash::make('1234567'),
+                'name' => 'Super Admin',
+                'username' => 'system_admin',
+                'email' => 'admin@tokenpap.co.ke',
+                'password' => Hash::make('123456'),
+                'role' => 'admin',
                 'email_verified_at' => now(),
             ]
         );

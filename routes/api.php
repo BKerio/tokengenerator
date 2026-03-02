@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\SystemMonitoringController;
 use App\Http\Controllers\Api\MpesaController;
 use App\Http\Controllers\Api\SystemConfigController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\TokenController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,7 +23,7 @@ Route::post('/admin/login', [AuthController::class, 'login']);
 Route::post('/mpesa/stkpush', [MpesaController::class, 'stkPush']);
 Route::post('/mpesa/callback', [MpesaController::class, 'callback']);
 
-// Protected routes
+// Protected routes (allow both default user tokens and admin tokens)
 Route::middleware('auth:sanctum')->group(function () {
     // Location routes
     Route::get('locations/counties', [LocationController::class, 'getCounties']);
@@ -39,6 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('admin/vendors', VendorController::class);
     Route::apiResource('admin/meters', MeterController::class);
     Route::apiResource('admin/customers', CustomerController::class);
+
+    // Token Vending
+    Route::post('tokens/generate', [TokenController::class, 'generate']);
     
     // System Monitoring & Oversight
     Route::get('admin/vending-control', [SystemMonitoringController::class, 'getSystemStats']);

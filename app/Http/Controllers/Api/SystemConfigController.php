@@ -402,6 +402,14 @@ class SystemConfigController extends Controller
             );
         }
 
+        if (isset($response['errorCode']) || isset($response['errorMessage']) || (isset($response['ResponseCode']) && $response['ResponseCode'] !== '0')) {
+            return response()->json([
+                'status' => 400,
+                'message' => $response['errorMessage'] ?? ($response['customerMessage'] ?? 'M-Pesa API Error'),
+                'response' => $response,
+            ], 400);
+        }
+
         return response()->json([
             'status' => 200,
             'message' => 'Test STK push request sent',

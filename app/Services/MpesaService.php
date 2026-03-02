@@ -51,6 +51,7 @@ class MpesaService
         $token = $this->getAccessToken();
 
         $transactionType = SystemConfig::getValue('mpesa_transaction_type', 'CustomerBuyGoodsOnline');
+        $partyB = ($transactionType === 'CustomerPayBillOnline') ? $this->shortcode : $this->tillno;
 
         $payload = [
             'BusinessShortCode' => $this->shortcode,
@@ -59,7 +60,7 @@ class MpesaService
             'TransactionType'   => $transactionType,
             'Amount'            => $amount,
             'PartyA'            => $phone,
-            'PartyB'            => $this->tillno,
+            'PartyB'            => $partyB,
             'PhoneNumber'       => $phone,
             'CallBackURL'       => $this->callbackUrl,
             'AccountReference'  => $reference,
@@ -83,11 +84,11 @@ class MpesaService
             ? 'https://api.safaricom.co.ke'
             : 'https://sandbox.safaricom.co.ke';
 
-        $consumerKey    = $config['consumer_key'] ?? null;
-        $consumerSecret = $config['consumer_secret'] ?? null;
+        $consumerKey    = $this->decryptIfSet($config['consumer_key'] ?? null);
+        $consumerSecret = $this->decryptIfSet($config['consumer_secret'] ?? null);
         $shortcode      = $config['shortcode'] ?? null;
         $tillno         = $config['till_no'] ?? null;
-        $passkey        = $config['passkey'] ?? null;
+        $passkey        = $this->decryptIfSet($config['passkey'] ?? null);
         $callbackUrl    = $config['callback_url'] ?? null;
 
         // Convert M-Pesa number to 2547XXXXXXXX format
@@ -103,6 +104,7 @@ class MpesaService
         $token = $responseToken->json()['access_token'] ?? null;
 
         $transactionType = $config['transaction_type'] ?? SystemConfig::getValue('mpesa_transaction_type', 'CustomerBuyGoodsOnline');
+        $partyB = ($transactionType === 'CustomerPayBillOnline') ? $shortcode : $tillno;
 
         $payload = [
             'BusinessShortCode' => $shortcode,
@@ -111,7 +113,7 @@ class MpesaService
             'TransactionType'   => $transactionType,
             'Amount'            => $amount,
             'PartyA'            => $phone,
-            'PartyB'            => $tillno,
+            'PartyB'            => $partyB,
             'PhoneNumber'       => $phone,
             'CallBackURL'       => $callbackUrl,
             'AccountReference'  => $reference,
@@ -122,6 +124,19 @@ class MpesaService
             ->post($baseUrl . '/mpesa/stkpush/v1/processrequest', $payload);
 
         return $response->json();
+    }
+
+    private function decryptIfSet(?string $value): ?string
+    {
+        if ($value) {
+            try {
+                return \Illuminate\Support\Facades\Crypt::decryptString($value);
+            } catch (\Exception $e) {
+                // Return as is if decryption fails (e.g. not encrypted yet)
+                return $value;
+            }
+        }
+        return null;
     }
 }
 

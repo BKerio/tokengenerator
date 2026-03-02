@@ -19,6 +19,11 @@ class Meter extends DocumentModel
         'initial_reading',
         'price_per_unit',
         'status',
+        'sgc',
+        'krn',
+        'ti',
+        'ea',
+        'ken',
     ];
 
     public function vendor()

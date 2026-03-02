@@ -36,6 +36,12 @@ return [
             'database' => env('DB_DATABASE', 'tokens'),
         ],
 
+        // 'mongodb' => [
+        //     'driver' => 'mongodb',
+        //     'dsn' => env('MONGO_DB_DSN'),
+        //     'database' => env('MONGO_DB_DATABASE', 'test'),
+        // ],
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),

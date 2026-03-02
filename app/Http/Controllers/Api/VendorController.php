@@ -52,7 +52,7 @@ class VendorController extends Controller
             'address' => 'required|string',
             'account_id' => 'required|string|unique:vendors,account_id',
             'paybill' => 'required|string',
-            'vendor_type' => 'required|string',
+            'vendor_type' => 'required|string|in:Individual,Company',
             'bank_name' => 'required|string',
         ]);
 
@@ -105,7 +105,7 @@ class VendorController extends Controller
             'address' => 'sometimes|nullable|string',
             'account_id' => 'sometimes|nullable|string|unique:vendors,account_id,' . $vendor->id . ',_id',
             'paybill' => 'sometimes|nullable|string',
-            'vendor_type' => 'sometimes|nullable|string',
+            'vendor_type' => 'sometimes|nullable|string|in:Individual,Company',
             'bank_name' => 'sometimes|nullable|string',
             'status' => 'sometimes|nullable|string|in:active,suspended',
         ]);
@@ -205,10 +205,22 @@ class VendorController extends Controller
             ], 404);
         }
 
+        $smsConfig = $vendor->sms_config ?? [];
+        if (isset($smsConfig['api_key'])) {
+            $smsConfig['api_key'] = 'is_set';
+        }
+
+        $mpesaConfig = $vendor->mpesa_config ?? [];
+        foreach (['consumer_key', 'consumer_secret', 'passkey'] as $k) {
+            if (isset($mpesaConfig[$k])) {
+                $mpesaConfig[$k] = 'is_set';
+            }
+        }
+
         return response()->json([
             'status' => 200,
-            'sms_config' => $vendor->sms_config ?? [],
-            'mpesa_config' => $vendor->mpesa_config ?? [],
+            'sms_config' => $smsConfig,
+            'mpesa_config' => $mpesaConfig,
         ]);
     }
 
@@ -241,19 +253,27 @@ class VendorController extends Controller
         ]);
 
         if (isset($data['sms_config'])) {
-            // Merge with existing config, preserving existing values if new ones are not provided
-            $existingSmsConfig = $vendor->sms_config ?? [];
-            $vendor->sms_config = array_merge($existingSmsConfig, array_filter($data['sms_config'], function($value) {
+            $smsData = array_filter($data['sms_config'], function($value) {
                 return $value !== null && $value !== '';
-            }));
+            });
+            if (isset($smsData['api_key'])) {
+                $smsData['api_key'] = \Illuminate\Support\Facades\Crypt::encryptString($smsData['api_key']);
+            }
+            $existingSmsConfig = $vendor->sms_config ?? [];
+            $vendor->sms_config = array_merge($existingSmsConfig, $smsData);
         }
 
         if (isset($data['mpesa_config'])) {
-            // Merge with existing config, preserving existing values if new ones are not provided
-            $existingMpesaConfig = $vendor->mpesa_config ?? [];
-            $vendor->mpesa_config = array_merge($existingMpesaConfig, array_filter($data['mpesa_config'], function($value) {
+            $mpesaData = array_filter($data['mpesa_config'], function($value) {
                 return $value !== null && $value !== '';
-            }));
+            });
+            foreach (['consumer_key', 'consumer_secret', 'passkey'] as $key) {
+                if (isset($mpesaData[$key])) {
+                    $mpesaData[$key] = \Illuminate\Support\Facades\Crypt::encryptString($mpesaData[$key]);
+                }
+            }
+            $existingMpesaConfig = $vendor->mpesa_config ?? [];
+            $vendor->mpesa_config = array_merge($existingMpesaConfig, $mpesaData);
         }
 
         $vendor->save();
@@ -261,8 +281,6 @@ class VendorController extends Controller
         return response()->json([
             'status' => 200,
             'message' => 'Vendor configuration updated successfully',
-            'sms_config' => $vendor->sms_config ?? [],
-            'mpesa_config' => $vendor->mpesa_config ?? [],
         ]);
     }
 
@@ -331,7 +349,7 @@ class VendorController extends Controller
         $data = $request->validate([
             'business_name' => 'sometimes|nullable|string|max:255',
             'address' => 'sometimes|nullable|string',
-            'vendor_type' => 'sometimes|nullable|string|max:255',
+            'vendor_type' => 'sometimes|nullable|string|max:255|in:Individual,Company',
             'bank_name' => 'sometimes|nullable|string|max:255',
             'dashboard_settings' => 'sometimes|nullable|array',
             'dashboard_settings.primary_color' => 'sometimes|nullable|string|max:50',

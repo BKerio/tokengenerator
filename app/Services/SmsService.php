@@ -30,7 +30,8 @@ class SmsService
             $msisdn = $this->normalizeMsisdn($phoneNumber);
 
             // Get SMS configuration (vendor override then global defaults)
-            $apiKey = $vendorConfig['api_key'] ?? SystemConfig::getValue('sms_api_key');
+            $vendorApiKey = $this->decryptIfSet($vendorConfig['api_key'] ?? null);
+            $apiKey = $vendorApiKey ?? SystemConfig::getValue('sms_api_key');
             $partnerId = $vendorConfig['partner_id'] ?? SystemConfig::getValue('sms_partner_id');
             $shortcode = $vendorConfig['shortcode'] ?? SystemConfig::getValue('sms_shortcode');
             $apiUrl = $vendorConfig['api_url'] ?? SystemConfig::getValue('sms_api_url');
@@ -106,6 +107,19 @@ class SmsService
         }
 
         return $digits;
+    }
+
+    private function decryptIfSet(?string $value): ?string
+    {
+        if ($value) {
+            try {
+                return \Illuminate\Support\Facades\Crypt::decryptString($value);
+            } catch (\Exception $e) {
+                // Return as is if decryption fails (e.g. not encrypted yet)
+                return $value;
+            }
+        }
+        return null;
     }
 }
 

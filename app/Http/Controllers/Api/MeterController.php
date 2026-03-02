@@ -70,7 +70,7 @@ class MeterController extends Controller
      */
     public function store(Request $request)
     {
-        $user = User::find(Auth::id());
+        $user = Auth::user();
         if (!$user || self::isVendorUser($user)) {
             return response()->json(['message' => 'Only administrators can create or assign meters.'], 403);
         }
@@ -90,6 +90,11 @@ class MeterController extends Controller
             'price_per_unit' => 'numeric|min:0',
             'vendor_id' => 'nullable|exists:vendors,_id',
             'status' => 'string|in:active,inactive,maintenance',
+            'sgc' => 'nullable|integer',
+            'krn' => 'nullable|integer',
+            'ti' => 'nullable|integer',
+            'ea' => 'nullable|integer',
+            'ken' => 'nullable|integer',
         ])->validate();
 
         $meter = Meter::create($validated);
@@ -144,6 +149,11 @@ class MeterController extends Controller
             'price_per_unit' => 'sometimes|numeric|min:0',
             'vendor_id' => 'sometimes|nullable|exists:vendors,_id',
             'status' => 'sometimes|string|in:active,inactive,maintenance',
+            'sgc' => 'sometimes|nullable|integer',
+            'krn' => 'sometimes|nullable|integer',
+            'ti' => 'sometimes|nullable|integer',
+            'ea' => 'sometimes|nullable|integer',
+            'ken' => 'sometimes|nullable|integer',
         ])->validate();
 
         // Only vendors can set or change price_per_unit; admins cannot.
@@ -168,7 +178,7 @@ class MeterController extends Controller
      */
     public function destroy(string $id)
     {
-        $user = User::find(Auth::id());
+        $user = Auth::user();
         if (!$user || self::isVendorUser($user)) {
             return response()->json(['message' => 'Only administrators can delete meters.'], 403);
         }
