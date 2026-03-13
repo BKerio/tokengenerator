@@ -15,5 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Illuminate\Validation\ValidationException $e, \Illuminate\Http\Request $request) {
+            \Log::error('Validation Failed', [
+                'url' => $request->fullUrl(),
+                'errors' => $e->errors(),
+                'input' => $request->all(),
+            ]);
+        });
     })->create();

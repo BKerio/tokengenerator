@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\SystemMonitoringController;
 use App\Http\Controllers\Api\MpesaController;
 use App\Http\Controllers\Api\SystemConfigController;
+use App\Http\Controllers\Api\VendingController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\TokenController;
 
@@ -68,11 +69,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/test-sms', [SystemConfigController::class, 'testSms']);
         Route::post('/test-mpesa', [SystemConfigController::class, 'testMpesa']);
     });
+
+    // Vending Configuration (admin)
+    Route::prefix('admin/vending-settings')->group(function () {
+        Route::get('/', [VendingController::class, 'index']);
+        Route::post('/bulk-update', [VendingController::class, 'bulkUpdate']);
+    });
     
     // Placeholder routes for roles and permissions
     Route::get('admin/roles', function() { return response()->json(['roles' => ['admin', 'vendor', 'attendance_staff']]); });
     Route::get('admin/permissions', function() { return response()->json(['permissions' => ['vending.control', 'meter.manage', 'customer.manage']]); });
 
-    // TODO: Add more resource routes here
-    // Members, Groups, Regions, Presbyteries, Parishes, etc.
 });

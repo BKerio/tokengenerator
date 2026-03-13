@@ -107,14 +107,22 @@ class PrismTokenService
 
         $drn = $meter->meter_number;
 
+        // Fetch vending parameters from database with fallbacks from meter or hardcoded defaults
+        $sgc = \App\Models\VendingSetting::getValue('vending_sgc', (int) ($meter->sgc ?? 201457));
+        $krn = \App\Models\VendingSetting::getValue('vending_krn', (int) ($meter->krn ?? 1));
+        $ti  = \App\Models\VendingSetting::getValue('vending_ti', (int) ($meter->ti ?? 1));
+        $ea  = \App\Models\VendingSetting::getValue('vending_ea', (int) ($meter->ea ?? 7));
+        $tct = \App\Models\VendingSetting::getValue('vending_tct', 1);
+        $ken = \App\Models\VendingSetting::getValue('vending_ken', (int) ($meter->ken ?? 255));
+
         $meterConfig = new \Prism\PrismToken1\MeterConfigIn([
             'drn' => $drn,
-            'sgc' => (int) ($meter->sgc ?? 201457), // Typecast to INT, default 201457
-            'krn' => (int) ($meter->krn ?? 1),
-            'ti'  => (int) ($meter->ti ?? 1),
-            'ea'  => (int) ($meter->ea ?? 7),
-            'tct' => 1, // Usually 1 for standard numeric STS
-            'ken' => (int) ($meter->ken ?? 255),
+            'sgc' => (int) $sgc,
+            'krn' => (int) $krn,
+            'ti'  => (int) $ti,
+            'ea'  => (int) $ea,
+            'tct' => (int) $tct,
+            'ken' => (int) $ken,
             'allowKrnUpdate' => false
         ]);
 

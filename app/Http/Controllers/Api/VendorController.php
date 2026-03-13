@@ -302,9 +302,10 @@ class VendorController extends Controller
         $meterCount = Meter::where('vendor_id', $vendor->id)->count();
         $activeMeters = Meter::where('vendor_id', $vendor->id)->where('status', 'active')->count();
 
-        $logoUrl = $vendor->logo_url
-            ? (strpos($vendor->logo_url, 'http') === 0 ? $vendor->logo_url : url($vendor->logo_url))
-            : null;
+        $logoUrl = $vendor->logo_url;
+        if ($logoUrl && strpos($logoUrl, 'http') !== 0) {
+            $logoUrl = Storage::disk('public')->url(str_replace('/storage/', '', $logoUrl));
+        }
 
         return response()->json([
             'status' => 200,
@@ -375,9 +376,10 @@ class VendorController extends Controller
 
         $vendor->save();
 
-        $logoUrl = $vendor->logo_url
-            ? (strpos($vendor->logo_url, 'http') === 0 ? $vendor->logo_url : url($vendor->logo_url))
-            : null;
+        $logoUrl = $vendor->logo_url;
+        if ($logoUrl && strpos($logoUrl, 'http') !== 0) {
+            $logoUrl = Storage::disk('public')->url(str_replace('/storage/', '', $logoUrl));
+        }
 
         return response()->json([
             'status' => 200,
@@ -446,11 +448,11 @@ class VendorController extends Controller
             }
         }
 
-        // Store relative path in DB; serve full URL in API responses
-        $vendor->logo_url = $logoUrl;
+        // Store relative path in DB (e.g., 'vendor-logos/filename.jpg')
+        $vendor->logo_url = $path;
         $vendor->save();
 
-        $fullLogoUrl = strpos($logoUrl, 'http') === 0 ? $logoUrl : url($logoUrl);
+        $fullLogoUrl = Storage::disk('public')->url($path);
 
         return response()->json([
             'status' => 200,
