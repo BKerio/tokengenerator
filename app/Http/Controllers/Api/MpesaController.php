@@ -355,6 +355,29 @@ class MpesaController extends Controller
     }
 
     /**
+     * Check transaction status for a specific checkout request.
+     */
+    public function checkStatus($checkoutRequestId)
+    {
+        $payment = Payment::where('checkout_request_id', $checkoutRequestId)->first();
+
+        if (!$payment) {
+            return response()->json([
+                'status' => 'pending',
+                'message' => 'Transaction is still processing'
+            ]);
+        }
+
+        return response()->json([
+            'status' => $payment->status, // 'confirmed' or 'failed'
+            'amount' => $payment->amount,
+            'result_code' => $payment->result_code,
+            'result_desc' => $payment->result_desc,
+            'mpesa_receipt' => $payment->mpesa_receipt_number,
+        ]);
+    }
+
+    /**
      * Store account reference temporarily for callback retrieval.
      */
     protected function storeAccountReference(string $checkoutRequestId, ?string $accountReference): void

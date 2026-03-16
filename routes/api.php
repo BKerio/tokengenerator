@@ -29,6 +29,7 @@ Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
 Route::post('/mpesa/stkpush', [MpesaController::class, 'stkPush']);
 Route::post('/mpesa/callback', [MpesaController::class, 'callback']);
+Route::get('/mpesa/query/{checkoutRequestId}', [MpesaController::class, 'checkStatus']);
 
 // Protected routes (allow both default user tokens and admin tokens)
 Route::middleware('auth:sanctum')->group(function () {
