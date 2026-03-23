@@ -3,7 +3,7 @@ name: Deploy to Server
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   deploy:
@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /var/www/tokengenerator
-            git pull origin main
+            git pull origin master
             composer install --no-dev --no-interaction --optimize-autoloader
             php artisan config:clear
             php artisan cache:clear
