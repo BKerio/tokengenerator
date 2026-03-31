@@ -14,6 +14,8 @@ use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\MpesaConfigController;
 use App\Http\Controllers\Api\SmsConfigController;
+use App\Http\Controllers\Api\LandlordController;
+use App\Http\Controllers\Api\PropertyController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Vendor routes
     Route::apiResource('admin/vendors', VendorController::class);
+    Route::apiResource('admin/landlords', LandlordController::class);
     Route::apiResource('admin/meters', MeterController::class);
     Route::apiResource('admin/customers', CustomerController::class);
 
@@ -70,6 +73,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('vendor/profile', [VendorController::class, 'getProfile']);
     Route::put('vendor/profile', [VendorController::class, 'updateProfile']);
     Route::post('vendor/logo', [VendorController::class, 'uploadLogo']);
+
+    // Landlord profile (self)
+    Route::get('landlord/profile', [LandlordController::class, 'getProfile']);
+    
+    // Landlord properties
+    Route::apiResource('landlord/properties', PropertyController::class);
 
     // System Configuration (admin)
     Route::prefix('admin/system-config')->group(function () {

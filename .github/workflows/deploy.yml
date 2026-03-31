@@ -21,10 +21,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /var/www/tokengenerator
-            git pull origin master
+            git fetch origin master
+            git reset --hard origin/master
+            git clean -fd
+            # Fix Composer running as root
+            export COMPOSER_ALLOW_SUPERUSER=1
             composer install --no-dev --no-interaction --optimize-autoloader
             php artisan config:clear
             php artisan cache:clear
             php artisan view:clear
             php artisan route:clear
-            # Optional: php artisan migrate --force
+            # php artisan migrate --force

@@ -18,8 +18,8 @@ class AdminSeeder extends Seeder
             ['email' => 'admin@tokenapp.com'],
             [
                 'name' => 'Super Admin',
-                'username' => 'system_admin',
-                'email' => 'admin@tokenpap.co.ke',
+                'username' => 'admin',
+                'email' => 'admin@tokenpap.com',
                 'password' => Hash::make('123456'),
                 'role' => 'admin',
                 'email_verified_at' => now(),
