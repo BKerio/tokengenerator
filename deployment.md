@@ -59,7 +59,7 @@ We used git to clone the repository to `/var/www` and installed its dependencies
 # Create web directory and clone the backend
 mkdir -p /var/www
 cd /var/www
-git clone https://github.com/BKerio/tokengenerator.git TOKENPAPSYSTEM
+git clone https://github.com/BKerio/TOKENPAPSYTEM.git TOKENPAPSYSTEM
 cd TOKENPAPSYSTEM
 
 # Install PHP dependencies
