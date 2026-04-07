@@ -22,3 +22,4 @@ yarn-error.log
 /.vscode
 /.zed
 id_rsa_github
+add_github_key.py
