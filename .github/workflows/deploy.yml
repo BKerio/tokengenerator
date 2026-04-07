@@ -22,6 +22,9 @@ jobs:
           script: |
             cd /var/www/TOKENPAPSYSTEM
             
+            # Tell Git it is safe to run commands in this folder even if it is owned by nginx
+            git config --global --add safe.directory /var/www/TOKENPAPSYSTEM
+            
             # Fetch latest changes from github
             git fetch origin master
             git reset --hard origin/master
