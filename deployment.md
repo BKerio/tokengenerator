@@ -104,21 +104,33 @@ setsebool -P httpd_can_network_connect 1
 ```
 
 ## 7. Nginx Configuration
-We created an Nginx virtual host for the API to pass traffic to `php-fpm`.
+We created an Nginx virtual host for the API that handles SSL/HTTPS via Certbot and properly passes traffic to `php-fpm` via its local TCP port.
+
+> [!IMPORTANT]
+> Ensure no other rogue configurations (e.g., `chatbot.conf`) in `/etc/nginx/conf.d/` bind to `server_name api.tokenpap.com`, as this will cause proxy collisions and result in a **502 Bad Gateway**. If you encounter mysterious 502 errors pointing to `http://127.0.0.1:5000`, hunt for and disable conflicting `.conf` files.
 
 ```bash
 cat << 'EOF' > /etc/nginx/conf.d/tokenpap.conf
 server {
     listen 80;
-    server_name _;
+    server_name api.tokenpap.com;
+    
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name api.tokenpap.com;
     root /var/www/TOKENPAPSYSTEM/public;
-
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-XSS-Protection "1; mode=block";
-    add_header X-Content-Type-Options "nosniff";
-
     index index.php index.html;
     charset utf-8;
+
+    # SSL configuration (adjust paths if your Certbot certs are located elsewhere)
+    ssl_certificate /etc/letsencrypt/live/api.tokenpap.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.tokenpap.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
@@ -127,7 +139,8 @@ server {
     error_page 404 /index.php;
 
     location ~ \.php$ {
-        fastcgi_pass unix:/run/php-fpm/www.sock;
+        # Note: CentOS PHP-FPM default uses a TCP port rather than a Unix socket.
+        fastcgi_pass 127.0.0.1:9000;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
@@ -139,8 +152,10 @@ server {
 }
 EOF
 
-# Test configuration and start Nginx
+# Test configuration and restart components
 nginx -t
+systemctl restart php-fpm
+systemctl restart nginx
 systemctl enable --now nginx
 
 # Ensure firewall allows HTTP
@@ -190,7 +205,7 @@ db.users.find().pretty()
 ### Option B: Using MongoDB Compass (Local GUI)
 1. Download [MongoDB Compass](https://www.mongodb.com/products/tools/compass) on your local computer.
 2. Click **Advanced Connection Options**, go to the **Proxy/SSH Tunnel** tab, and enter:
-   - **Hostname:** `151.236.222.239`
+   - **Hostname:** `[IP_ADDRESS]`
    - **Username:** `root`
    - **Password:** (Your server password)
 3. Connect and visually browse your `tokenpap_db` database remotely.
