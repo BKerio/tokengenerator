@@ -11,6 +11,7 @@ class Otp extends DocumentModel
 
     protected $fillable = [
         'phone',
+        'email',
         'otp',
         'expires_at',
     ];

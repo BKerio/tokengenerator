@@ -12,6 +12,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ForgotPasswordOtpMail;
+use App\Models\Admin;
 
 class AuthController extends Controller
 {
@@ -377,6 +380,154 @@ class AuthController extends Controller
                 'phone' => $customer->phone,
                 'role' => 'customer',
             ],
+            'status' => 200
+        ]);
+    }
+
+    /**
+     * Send OTP for vendor/admin forgot password
+     */
+    public function sendVendorForgotPasswordOtp(Request $request)
+    {
+        $request->validate([
+            'identifier' => 'required',
+        ]);
+
+        $identifier = $request->identifier;
+        $user = null;
+        $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
+
+        // Find user by email or phone
+        if ($isEmail) {
+            $user = User::where('email', $identifier)->first() ?? Admin::where('email', $identifier)->first();
+        } else {
+            // Assume phone if not email
+            $user = User::where('phone', $identifier)->first() ?? Admin::where('phone', $identifier)->first();
+            
+            // If phone lookup in User/Admin failed, might be a vendor record with user relation
+            if (!$user) {
+                $vendor = \App\Models\Vendor::where('phone', $identifier)->first();
+                if ($vendor) {
+                    $user = $vendor->user;
+                }
+            }
+        }
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'User with this contact information not found.'
+            ], 404);
+        }
+
+        // Generate 6-digit OTP
+        $otpCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        
+        // Store/Update OTP
+        Otp::updateOrCreate(
+            [$isEmail ? 'email' : 'phone' => $identifier],
+            [
+                'otp' => $otpCode,
+                'expires_at' => Carbon::now()->addMinutes(10)
+            ]
+        );
+
+        if ($isEmail) {
+            // Send Email
+            Mail::to($identifier)->send(new ForgotPasswordOtpMail($otpCode));
+        } else {
+            // Send SMS
+            $smsService = new SmsService();
+            $message = "Your Token Utility System password reset code is: {$otpCode}. Valid for 10 minutes.";
+            $smsService->sendSms($identifier, $message);
+        }
+
+        return response()->json([
+            'message' => 'Verification code sent successfully.'
+        ]);
+    }
+
+    /**
+     * Verify OTP for forgot password
+     */
+    public function verifyVendorForgotPasswordOtp(Request $request)
+    {
+        $request->validate([
+            'identifier' => 'required',
+            'otp' => 'required|size:6',
+        ]);
+
+        $identifier = $request->identifier;
+        $otpCode = $request->otp;
+        $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
+
+        $otpRecord = Otp::where($isEmail ? 'email' : 'phone', $identifier)
+            ->where('otp', $otpCode)
+            ->where('expires_at', '>', Carbon::now())
+            ->first();
+
+        if (!$otpRecord) {
+            return response()->json([
+                'message' => 'Invalid or expired verification code.'
+            ], 401);
+        }
+
+        return response()->json([
+            'message' => 'Code verified. You can now reset your password.',
+            'status' => 200
+        ]);
+    }
+
+    /**
+     * Reset password
+     */
+    public function resetVendorPassword(Request $request)
+    {
+        $request->validate([
+            'identifier' => 'required',
+            'otp' => 'required|size:6',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $identifier = $request->identifier;
+        $otpCode = $request->otp;
+        $isEmail = filter_var($identifier, FILTER_VALIDATE_EMAIL);
+
+        // Re-verify OTP for security
+        $otpRecord = Otp::where($isEmail ? 'email' : 'phone', $identifier)
+            ->where('otp', $otpCode)
+            ->where('expires_at', '>', Carbon::now())
+            ->first();
+
+        if (!$otpRecord) {
+            return response()->json([
+                'message' => 'Invalid or expired verification session.'
+            ], 401);
+        }
+
+        $user = null;
+        if ($isEmail) {
+            $user = User::where('email', $identifier)->first() ?? Admin::where('email', $identifier)->first();
+        } else {
+            $user = User::where('phone', $identifier)->first() ?? Admin::where('phone', $identifier)->first();
+            if (!$user) {
+                $vendor = \App\Models\Vendor::where('phone', $identifier)->first();
+                if ($vendor) { $user = $vendor->user; }
+            }
+        }
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password)
+        ]);
+
+        // Delete used OTP
+        $otpRecord->delete();
+
+        return response()->json([
+            'message' => 'Password reset successful. You can now login.',
             'status' => 200
         ]);
     }

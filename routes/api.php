@@ -25,6 +25,11 @@ use App\Http\Controllers\Api\PropertyController;
 
 // Public routes
 Route::post('/admin/login', [AuthController::class, 'login']);
+// Admin/Vendor forgot password
+Route::post('/admin/forgot-password/send-otp', [AuthController::class, 'sendVendorForgotPasswordOtp']);
+Route::post('/admin/forgot-password/verify-otp', [AuthController::class, 'verifyVendorForgotPasswordOtp']);
+Route::post('/admin/forgot-password/reset', [AuthController::class, 'resetVendorPassword']);
+
 Route::post('/customer/send-otp', [AuthController::class, 'sendCustomerOtp']);
 Route::post('/customer/login-otp', [AuthController::class, 'customerLoginOtp']);
 Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle']);
