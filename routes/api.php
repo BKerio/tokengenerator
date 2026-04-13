@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\MpesaConfigController;
 use App\Http\Controllers\Api\SmsConfigController;
 use App\Http\Controllers\Api\LandlordController;
 use App\Http\Controllers\Api\PropertyController;
+use App\Http\Controllers\Api\ContactEnquiryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +38,7 @@ Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallbac
 Route::post('/mpesa/stkpush', [MpesaController::class, 'stkPush']);
 Route::post('/mpesa/callback', [MpesaController::class, 'callback']);
 Route::get('/mpesa/query/{checkoutRequestId}', [MpesaController::class, 'checkStatus']);
+Route::post('/enquiries', [ContactEnquiryController::class, 'store']);
 
 // Protected routes (allow both default user tokens and admin tokens)
 Route::middleware('auth:sanctum')->group(function () {
@@ -56,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('admin/landlords', LandlordController::class);
     Route::apiResource('admin/meters', MeterController::class);
     Route::apiResource('admin/customers', CustomerController::class);
+    Route::apiResource('admin/enquiries', ContactEnquiryController::class)->except(['store']);
 
     // Token Vending
     Route::post('tokens/generate', [TokenController::class, 'generate']);
