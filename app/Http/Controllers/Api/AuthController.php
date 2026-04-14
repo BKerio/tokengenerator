@@ -110,6 +110,13 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Check if user is pending approval
+        if ($user->status === 'pending') {
+            return response()->json([
+                'message' => 'Your account is pending admin approval. Please wait for an email/SMS confirmation.'
+            ], 403);
+        }
+
         // Create token (Sanctum handles morphs automatically based on the model instance)
         $tokenName = $isAdmin ? 'admin-token' : 'auth-token';
         $token = $user->createToken($tokenName)->plainTextToken;

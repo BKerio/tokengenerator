@@ -15,7 +15,7 @@ use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\MpesaConfigController;
 use App\Http\Controllers\Api\SmsConfigController;
 use App\Http\Controllers\Api\LandlordController;
-use App\Http\Controllers\Api\PropertyController;
+use App\Http\Controllers\Api\VendorRegistrationController;
 use App\Http\Controllers\Api\ContactEnquiryController;
 
 /*
@@ -39,6 +39,7 @@ Route::post('/mpesa/stkpush', [MpesaController::class, 'stkPush']);
 Route::post('/mpesa/callback', [MpesaController::class, 'callback']);
 Route::get('/mpesa/query/{checkoutRequestId}', [MpesaController::class, 'checkStatus']);
 Route::post('/enquiries', [ContactEnquiryController::class, 'store']);
+Route::post('/register/vendor', [VendorRegistrationController::class, 'register']);
 
 // Protected routes (allow both default user tokens and admin tokens)
 Route::middleware('auth:sanctum')->group(function () {
@@ -55,6 +56,9 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Vendor routes
     Route::apiResource('admin/vendors', VendorController::class);
+    Route::get('admin/pending-vendors', [VendorRegistrationController::class, 'pending']);
+    Route::post('admin/vendors/{vendor}/approve', [VendorRegistrationController::class, 'approve']);
+    Route::post('admin/vendors/{vendor}/reject', [VendorRegistrationController::class, 'reject']);
     Route::apiResource('admin/landlords', LandlordController::class);
     Route::apiResource('admin/meters', MeterController::class);
     Route::apiResource('admin/customers', CustomerController::class);

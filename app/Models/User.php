@@ -22,6 +22,7 @@ class User extends Authenticatable
         'profile_image',
         'bio',
         'role', // admin, vendor, etc.
+        'status', // active, pending, suspended
     ];
 
     protected $hidden = [
