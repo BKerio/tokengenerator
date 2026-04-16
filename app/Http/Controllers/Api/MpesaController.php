@@ -125,6 +125,14 @@ class MpesaController extends Controller
      */
     public function callback(Request $request)
     {
+        Log::info('M-Pesa Callback Raw Request', [
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'ip' => $request->ip(),
+            'headers' => $request->headers->all(),
+            'content' => $request->getContent()
+        ]);
+
         $data = $request->all();
 
         $body = $data['Body']['stkCallback'] ?? [];
@@ -135,9 +143,10 @@ class MpesaController extends Controller
 
         Log::info('M-Pesa Callback received', [
             'checkout_request_id' => $checkoutRequestId,
+            'merchant_request_id' => $merchantRequestId,
             'result_code' => $resultCode,
             'result_desc' => $resultDesc,
-            'body' => $body,
+            'ip' => $request->ip(),
         ]);
 
         // Only process successful transactions (ResultCode = 0)
@@ -383,7 +392,7 @@ class MpesaController extends Controller
             }
 
             if (!$shouldWait) break;
-            usleep(200000); // Check every 0.2 seconds for payment callback
+            usleep(500000); // Check every 0.5 seconds for payment callback
         }
 
         return response()->json([

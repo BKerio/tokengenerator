@@ -83,7 +83,11 @@ class MpesaService
             'TransactionDesc'   => $reference,
         ];
 
-        Log::info('Sending Global STK Push Process Request', ['url' => $this->baseUrl . '/mpesa/stkpush/v1/processrequest']);
+        Log::info('Sending Global STK Push Process Request', [
+            'url' => $this->baseUrl . '/mpesa/stkpush/v1/processrequest',
+            'callback_url' => $this->callbackUrl,
+            'reference' => $reference
+        ]);
         $response = Http::withToken($token)
             ->post($this->baseUrl . '/mpesa/stkpush/v1/processrequest', $payload);
 
@@ -150,12 +154,16 @@ class MpesaService
             'PartyA'            => $phone,
             'PartyB'            => $partyB,
             'PhoneNumber'       => $phone,
-            'CallBackURL'       => $callbackUrl,
+            'CallBackURL'       => $this->callbackUrl,
             'AccountReference'  => $reference,
             'TransactionDesc'   => $reference,
         ];
 
-        Log::info('Sending STK Push Process Request', ['url' => $baseUrl . '/mpesa/stkpush/v1/processrequest']);
+        Log::info('Sending STK Push Process Request', [
+            'url' => $baseUrl . '/mpesa/stkpush/v1/processrequest',
+            'callback_url' => $this->callbackUrl,
+            'reference' => $reference
+        ]);
         $response = Http::withToken($token)
             ->post($baseUrl . '/mpesa/stkpush/v1/processrequest', $payload);
 
