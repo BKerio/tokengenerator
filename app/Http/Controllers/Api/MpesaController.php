@@ -71,11 +71,11 @@ class MpesaController extends Controller
 
         if ($vendorConfig) {
             Log::info('Initiating STK Push with vendor-specific config');
-            
+
             // Validate vendor config has required fields
             $requiredFields = ['consumer_key', 'consumer_secret', 'passkey'];
             $type = $vendorConfig['transaction_type'] ?? 'CustomerBuyGoodsOnline';
-            
+
             if ($type === 'CustomerPayBillOnline') {
                 $requiredFields[] = 'shortcode';
             } else {
@@ -105,7 +105,7 @@ class MpesaController extends Controller
                 'error' => $errorMessage,
                 'full_response' => $response
             ]);
-            
+
             return response()->json([
                 'status' => 'error',
                 'message' => $errorMessage,
@@ -225,7 +225,7 @@ class MpesaController extends Controller
                     // Send confirmation SMS or Tokens
                     try {
                         $meter = Meter::where('meter_number', $accountReference)->first();
-                        
+
                         if ($meter) {
                             Log::info('Vending token for M-Pesa payment', [
                                 'meter_id' => $meter->id,
@@ -234,7 +234,7 @@ class MpesaController extends Controller
 
                             try {
                                 $generatedTokens = $this->prismTokenService->issueCreditToken($meter, $amount);
-                                
+
                                 $tokenStrings = [];
                                 foreach ($generatedTokens as $token) {
                                     if (isset($token->tokenDec)) {
@@ -245,18 +245,18 @@ class MpesaController extends Controller
                                 }
 
                                 TokenTransaction::create([
-                                    'meter_id'   => $meter->id,
-                                    'vendor_id'  => $meter->vendor_id ?? null,
-                                    'customer_id'=> $meter->customers()->first()->id ?? null,
+                                    'meter_id' => $meter->id,
+                                    'vendor_id' => $meter->vendor_id ?? null,
+                                    'customer_id' => $meter->customers()->first()->id ?? null,
                                     'payment_id' => $payment->id,
-                                    'amount'     => $amount,
-                                    'tokens'     => $tokenStrings,
-                                    'status'     => 'success',
-                                    'description'=> 'M-Pesa payment generated ' . count($tokenStrings) . ' token(s).'
+                                    'amount' => $amount,
+                                    'tokens' => $tokenStrings,
+                                    'status' => 'success',
+                                    'description' => 'M-Pesa payment generated ' . count($tokenStrings) . ' token(s).'
                                 ]);
 
                                 $smsSent = $this->paymentSmsService->sendTokenMessage($payment, $meter, $tokenStrings);
-                                
+
                                 if ($smsSent) {
                                     Log::info('Token SMS sent successfully via M-Pesa flow', ['payment_id' => $payment->id]);
                                 }
@@ -266,7 +266,7 @@ class MpesaController extends Controller
                                     'payment_id' => $payment->id,
                                     'meter_id' => $meter->id
                                 ]);
-                                
+
                                 TokenTransaction::create([
                                     'meter_id' => $meter->id,
                                     'vendor_id' => $meter->vendor_id ?? null,
@@ -301,7 +301,12 @@ class MpesaController extends Controller
                 } catch (\Throwable $e) {
                     Log::error('Failed to persist successful STK callback', [
                         'checkout_request_id' => $checkoutRequestId,
+                        'merchant_request_id' => $merchantRequestId,
+                        'phone' => $phone,
+                        'amount' => $amount,
+                        'mpesa_receipt' => $mpesaReceipt,
                         'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
                     ]);
                 }
             } else {
@@ -338,10 +343,10 @@ class MpesaController extends Controller
                     Payment::create([
                         'merchant_request_id' => $merchantRequestId,
                         'checkout_request_id' => $checkoutRequestId,
-                        'account_reference' => $accountReference,
-                        'phone' => '',
-                        'amount' => 0,
-                        'mpesa_receipt_number' => null,
+                        'account_reference' => $accountReference ?: 'UNKNOWN-METER',
+                        'phone' => $phone ?? 'UNKNOWN',
+                        'amount' => (float) ($amount ?? 0),
+                        'mpesa_receipt_number' => 'FAILED-' . $checkoutRequestId, // Prevent collision on unique indices
                         'result_code' => (string) $resultCode,
                         'result_desc' => $resultDesc ?: $failureReason,
                         'status' => 'failed',
@@ -350,7 +355,10 @@ class MpesaController extends Controller
             } catch (\Throwable $e) {
                 Log::error('Failed to persist failed STK callback', [
                     'checkout_request_id' => $checkoutRequestId,
+                    'merchant_request_id' => $merchantRequestId,
+                    'result_code' => $resultCode,
                     'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
                 ]);
             }
         }
@@ -387,11 +395,12 @@ class MpesaController extends Controller
                         $payment->refresh();
                     }
                 }
-                
+
                 return response()->json($this->formatStatusResponse($payment));
             }
 
-            if (!$shouldWait) break;
+            if (!$shouldWait)
+                break;
             usleep(500000); // Check every 0.5 seconds for payment callback
         }
 
