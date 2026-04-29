@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Meter;
 use App\Models\TokenTransaction;
+use App\Models\Customer;
 use App\Services\PrismTokenService;
 use Illuminate\Support\Facades\Log;
 
@@ -112,5 +113,69 @@ class TokenController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Search latest tokens by meter number or customer phone number
+     */
+    public function searchPublic(Request $request)
+    {
+        $query = $request->query('q');
+
+        if (!$query) {
+            return response()->json(['message' => 'Query parameter "q" is required.'], 400);
+        }
+
+        $meterIds = [];
+        $metersData = [];
+
+        // 1. Try to find by Meter Number
+        $meters = Meter::where('meter_number', 'like', '%' . $query . '%')->get();
+        if ($meters->isNotEmpty()) {
+            foreach ($meters as $m) {
+                $meterIds[] = $m->id;
+                $metersData[$m->id] = $m;
+            }
+        }
+
+        // 2. Try to find by Phone Number (Customer)
+        // Ensure to remove common prefixes or formatting if necessary
+        $customers = Customer::where('phone', 'like', '%' . $query . '%')->get();
+        if ($customers->isNotEmpty()) {
+            foreach ($customers as $c) {
+                if ($c->meter_id) {
+                    $meterIds[] = $c->meter_id;
+                    if (!isset($metersData[$c->meter_id])) {
+                        $m = Meter::find($c->meter_id);
+                        if ($m) {
+                            $metersData[$m->id] = $m;
+                        }
+                    }
+                }
+            }
+        }
+
+        $meterIds = array_unique($meterIds);
+
+        if (empty($meterIds)) {
+            return response()->json(['message' => 'No matching meter or customer found.'], 404);
+        }
+
+        // 3. Fetch latest 5 transactions for these meters
+        $transactions = TokenTransaction::whereIn('meter_id', $meterIds)
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        // Attach meter info to each transaction for frontend display
+        $transactions->transform(function ($transaction) use ($metersData) {
+            $transaction->meter = $metersData[$transaction->meter_id] ?? null;
+            return $transaction;
+        });
+
+        return response()->json([
+            'message' => 'Transactions retrieved successfully',
+            'data' => $transactions
+        ]);
     }
 }

@@ -40,6 +40,7 @@ Route::post('/mpesa/callback', [MpesaController::class, 'callback']);
 Route::get('/mpesa/query/{checkoutRequestId}', [MpesaController::class, 'checkStatus']);
 Route::post('/enquiries', [ContactEnquiryController::class, 'store']);
 Route::post('/register/vendor', [VendorRegistrationController::class, 'register']);
+Route::get('/tokens/search', [TokenController::class, 'searchPublic']);
 
 // Protected routes (allow both default user tokens and admin tokens)
 Route::middleware('auth:sanctum')->group(function () {
