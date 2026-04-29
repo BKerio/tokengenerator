@@ -9,7 +9,7 @@ class TestPrismToken extends Command
 {
     protected $signature = 'prism:test-token 
                             {meter=600727000000000009} 
-                            {amount=100}';
+                            {amount=10}';
 
     protected $description = 'Test the integration of the Prism API by requesting a token.';
 
