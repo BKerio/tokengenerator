@@ -236,6 +236,13 @@ class VendorController extends Controller
         $user = $request->user();
         $vendor = Vendor::where('user_id', $user->id)->firstOrFail();
 
+        if ($request->has('mpesa_config')) {
+            return response()->json([
+                'status' => 403,
+                'message' => 'M-Pesa API credentials are managed by TokenPap administrators. Contact support to update payment settings.',
+            ], 403);
+        }
+
         $data = $request->validate([
             'sms_config' => 'sometimes|array',
             'sms_config.provider' => 'sometimes|nullable|string|max:255',
@@ -244,16 +251,6 @@ class VendorController extends Controller
             'sms_config.partner_id' => 'sometimes|nullable|string|max:255',
             'sms_config.shortcode' => 'sometimes|nullable|string|max:255',
             'sms_config.enabled' => 'sometimes|nullable|boolean',
-            
-            'mpesa_config' => 'sometimes|array',
-            'mpesa_config.consumer_key' => 'sometimes|nullable|string|max:500',
-            'mpesa_config.consumer_secret' => 'sometimes|nullable|string|max:500',
-            'mpesa_config.passkey' => 'sometimes|nullable|string|max:500',
-            'mpesa_config.shortcode' => 'sometimes|nullable|string|max:255',
-            'mpesa_config.till_no' => 'sometimes|nullable|string|max:255',
-            'mpesa_config.env' => 'sometimes|nullable|string|in:sandbox,live',
-            'mpesa_config.callback_url' => 'sometimes|nullable|string|url|max:500',
-            'mpesa_config.transaction_type' => 'sometimes|nullable|string|in:CustomerPayBillOnline,CustomerBuyGoodsOnline',
         ]);
 
         if (isset($data['sms_config'])) {
@@ -271,28 +268,6 @@ class VendorController extends Controller
                 $smsData['vendor_id'] = $vendor->id;
                 SmsConfig::create($smsData);
             }
-        }
-
-        if (isset($data['mpesa_config'])) {
-            $mpesaData = array_filter($data['mpesa_config'], function($value) {
-                return $value !== null && $value !== '';
-            });
-            foreach (['consumer_key', 'consumer_secret', 'passkey'] as $key) {
-                if (isset($mpesaData[$key])) {
-                    $mpesaData[$key] = \Illuminate\Support\Facades\Crypt::encryptString($mpesaData[$key]);
-                }
-            }
-            
-            $mpesaConfig = $vendor->mpesaConfig;
-            if ($mpesaConfig) {
-                $mpesaConfig->update($mpesaData);
-            } else {
-                $mpesaData['vendor_id'] = $vendor->id;
-                MpesaConfig::create($mpesaData);
-            }
-
-            // Keep legacy embedded field in sync so old code paths cannot read stale data
-            $vendor->update(['mpesa_config' => null]);
         }
 
         return response()->json([

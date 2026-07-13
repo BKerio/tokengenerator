@@ -32,4 +32,9 @@ class Landlord extends Model
     {
         return $this->hasMany(Meter::class);
     }
+
+    public function mpesaConfig()
+    {
+        return $this->hasOne(MpesaConfig::class, 'landlord_id', 'id');
+    }
 }

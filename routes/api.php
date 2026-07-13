@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\VendingController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\MpesaConfigController;
+use App\Http\Controllers\Api\AdminPaymentConfigController;
 use App\Http\Controllers\Api\SmsConfigController;
 use App\Http\Controllers\Api\LandlordController;
 use App\Http\Controllers\Api\PropertyController;
@@ -89,15 +90,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('admin/vending-control', [SystemMonitoringController::class, 'getSystemStats']);
     Route::get('admin/vendors/{vendor}/oversight', [SystemMonitoringController::class, 'getVendorOversight']);
 
-    // Authenticated vendor configuration (per-vendor Mpesa/SMS)
+    // Authenticated vendor configuration (SMS only — M-Pesa managed by admin)
     Route::get('vendor/config', [VendorController::class, 'getConfig']);
     Route::put('vendor/config', [VendorController::class, 'updateConfig']);
 
-    // New separate config routes
+    // Vendor self-service M-Pesa routes disabled — use admin payment-config API
     Route::get('vendor/mpesa-config', [MpesaConfigController::class, 'show']);
-    Route::put('vendor/mpesa-config', [MpesaConfigController::class, 'update']);
+    // Route::put('vendor/mpesa-config', ...) — removed; admin only
+
     Route::get('vendor/sms-config', [SmsConfigController::class, 'show']);
     Route::put('vendor/sms-config', [SmsConfigController::class, 'update']);
+
+    // Admin: per-vendor / per-landlord payment API management
+    Route::prefix('admin/payment-config')->group(function () {
+        Route::get('/entities', [AdminPaymentConfigController::class, 'entities']);
+        Route::get('/vendors/{vendor}', [AdminPaymentConfigController::class, 'showVendor']);
+        Route::put('/vendors/{vendor}', [AdminPaymentConfigController::class, 'updateVendor']);
+        Route::get('/landlords/{landlord}', [AdminPaymentConfigController::class, 'showLandlord']);
+        Route::put('/landlords/{landlord}', [AdminPaymentConfigController::class, 'updateLandlord']);
+    });
 
     // Vendor profile and branding
     Route::get('vendor/profile', [VendorController::class, 'getProfile']);

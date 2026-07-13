@@ -11,6 +11,7 @@ class MpesaConfig extends Model
 
     protected $fillable = [
         'vendor_id',
+        'landlord_id',
         'consumer_key',
         'consumer_secret',
         'passkey',
@@ -27,5 +28,10 @@ class MpesaConfig extends Model
     public function vendor()
     {
         return $this->belongsTo(Vendor::class);
+    }
+
+    public function landlord()
+    {
+        return $this->belongsTo(Landlord::class);
     }
 }

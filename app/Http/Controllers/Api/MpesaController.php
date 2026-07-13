@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Meter;
 use App\Models\Vendor;
+use App\Models\Landlord;
 use App\Models\TokenTransaction;
 use App\Services\MpesaService;
 use App\Services\PaymentSmsService;
@@ -47,39 +48,51 @@ class MpesaController extends Controller
             'reference' => $reference,
         ]);
 
-        $vendorConfig = null;
-        // Try to identify the vendor via the meter number (passed as reference)
+        $mpesaConfig = null;
+        // Try to identify the vendor or landlord via the meter number (passed as reference)
         if ($reference !== 'Payment') {
-            $meter = Meter::where('meter_number', $reference)->first();
+            $meter = Meter::with(['vendor.mpesaConfig', 'landlord.mpesaConfig'])->where('meter_number', $reference)->first();
             if ($meter) {
-                Log::info('Meter found for STK Push', ['meter_number' => $reference, 'vendor_id' => $meter->vendor_id]);
+                Log::info('Meter found for STK Push', [
+                    'meter_number' => $reference,
+                    'vendor_id' => $meter->vendor_id,
+                    'landlord_id' => $meter->landlord_id,
+                ]);
+
                 if ($meter->vendor) {
-                    $vendorConfig = $this->resolveVendorMpesaConfig($meter->vendor);
-                    if ($vendorConfig) {
+                    $mpesaConfig = $this->resolveVendorMpesaConfig($meter->vendor);
+                    if ($mpesaConfig) {
                         Log::info('Vendor M-Pesa config found', ['vendor_id' => $meter->vendor->id]);
                     } else {
                         Log::warning('Vendor found but has no M-Pesa config', ['vendor_id' => $meter->vendor->id]);
                     }
+                } elseif ($meter->landlord) {
+                    $mpesaConfig = $this->resolveLandlordMpesaConfig($meter->landlord);
+                    if ($mpesaConfig) {
+                        Log::info('Landlord M-Pesa config found', ['landlord_id' => $meter->landlord->id]);
+                    } else {
+                        Log::warning('Landlord found but has no M-Pesa config', ['landlord_id' => $meter->landlord->id]);
+                    }
                 } else {
-                    Log::warning('Meter found but has no associated vendor', ['meter_number' => $reference]);
+                    Log::warning('Meter found but has no associated vendor or landlord', ['meter_number' => $reference]);
                 }
             } else {
                 Log::warning('Meter not found for STK Push reference', ['meter_number' => $reference]);
             }
         }
 
-        if ($vendorConfig) {
-            Log::info('Initiating STK Push with vendor-specific config');
+        if ($mpesaConfig) {
+            Log::info('Initiating STK Push with account-specific config');
 
-            $missingField = $this->firstMissingMpesaField($vendorConfig);
+            $missingField = $this->firstMissingMpesaField($mpesaConfig);
             if ($missingField) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => "Vendor M-Pesa configuration is incomplete. Missing: {$missingField}",
+                    'message' => "M-Pesa configuration is incomplete. Missing: {$missingField}",
                 ], 400);
             }
 
-            $response = $this->mpesa->stkPushWithConfig($vendorConfig, $validated['phone'], (float) $validated['amount'], $reference);
+            $response = $this->mpesa->stkPushWithConfig($mpesaConfig, $validated['phone'], (float) $validated['amount'], $reference);
         } elseif ($this->isGlobalMpesaConfigured()) {
             Log::info('Initiating STK Push with global M-Pesa config (fallback)');
             $response = $this->mpesa->stkPush($validated['phone'], (float) $validated['amount'], $reference);
@@ -88,7 +101,7 @@ class MpesaController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'M-Pesa is not configured for this meter. The vendor must add M-Pesa credentials in System Settings.',
+                'message' => 'M-Pesa is not configured for this meter. An administrator must add M-Pesa credentials in Payment API settings.',
             ], 400);
         }
 
@@ -491,6 +504,15 @@ class MpesaController extends Controller
 
             return null;
         }
+    }
+
+    protected function resolveLandlordMpesaConfig(Landlord $landlord): ?array
+    {
+        if ($landlord->mpesaConfig) {
+            return $landlord->mpesaConfig->toArray();
+        }
+
+        return null;
     }
 
     protected function resolveVendorMpesaConfig(Vendor $vendor): ?array
