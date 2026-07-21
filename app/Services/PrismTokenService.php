@@ -15,6 +15,7 @@ class PrismTokenService
     private $client = null;
     private $transport = null;
     private $accessToken = null;
+    private ?string $lastMessageId = null;
 
     /**
      * Connect to the Prism Vending system using Thrift over TLS
@@ -71,6 +72,11 @@ class PrismTokenService
         return sprintf('%10d-%s', time(), bin2hex(random_bytes(8)));
     }
 
+    public function getLastMessageId(): ?string
+    {
+        return $this->lastMessageId;
+    }
+
     /**
      * Authenticate and get Access Token
      */
@@ -110,29 +116,12 @@ class PrismTokenService
         }
 
         $drn = $meter->meter_number;
-
-        // Fetch vending parameters from database with fallbacks from meter or hardcoded defaults
-        $sgc = \App\Models\VendingSetting::getValue('vending_sgc', (int) ($meter->sgc ?? 600909));
-        $krn = \App\Models\VendingSetting::getValue('vending_krn', (int) ($meter->krn ?? 1));
-        $ti  = \App\Models\VendingSetting::getValue('vending_ti', (int) ($meter->ti ?? 1));
-        $ea  = \App\Models\VendingSetting::getValue('vending_ea', (int) ($meter->ea ?? 7));
-        $tct = \App\Models\VendingSetting::getValue('vending_tct', 1);
-        $ken = \App\Models\VendingSetting::getValue('vending_ken', (int) ($meter->ken ?? 255));
-
-        $meterConfig = new \Prism\PrismToken1\MeterConfigIn([
-            'drn' => $drn,
-            'sgc' => (int) $sgc,
-            'krn' => (int) $krn,
-            'ti'  => (int) $ti,
-            'ea'  => (int) $ea,
-            'tct' => (int) $tct,
-            'ken' => (int) $ken,
-            'allowKrnUpdate' => false
-        ]);
+        $meterConfig = $this->buildMeterConfig($meter);
 
         try {
+            $this->lastMessageId = $this->generateMessageId();
             $tokens = $this->client->issueCreditToken(
-                $this->generateMessageId(),
+                $this->lastMessageId,
                 $this->accessToken,
                 $meterConfig,
                 $currencySubclass, // subclass
@@ -146,6 +135,58 @@ class PrismTokenService
             Log::error("Prism Token Generation Failed for DRN {$drn}: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    public function issueSetControlToken(\App\Models\Meter $meter, bool $isFlag, int $index, int $value)
+    {
+        if (!$this->accessToken) {
+            $this->authenticate();
+        }
+
+        $drn = $meter->meter_number;
+        $meterConfig = $this->buildMeterConfig($meter);
+
+        try {
+            $this->lastMessageId = $this->generateMessageId();
+            return $this->client->issueSetControlToken(
+                $this->lastMessageId,
+                $this->accessToken,
+                $meterConfig,
+                $isFlag,
+                $index,
+                $value,
+                0,
+                0
+            );
+        } catch (\Exception $e) {
+            Log::error("Prism Control Token Generation Failed for DRN {$drn}: " . $e->getMessage(), [
+                'index' => $index,
+                'value' => $value,
+                'is_flag' => $isFlag,
+            ]);
+            throw $e;
+        }
+    }
+
+    private function buildMeterConfig(\App\Models\Meter $meter): \Prism\PrismToken1\MeterConfigIn
+    {
+        $sgc = \App\Models\VendingSetting::getValue('vending_sgc', (int) ($meter->sgc ?? 600909));
+        $krn = \App\Models\VendingSetting::getValue('vending_krn', (int) ($meter->krn ?? 1));
+        $ti  = \App\Models\VendingSetting::getValue('vending_ti', (int) ($meter->ti ?? 1));
+        $ea  = \App\Models\VendingSetting::getValue('vending_ea', (int) ($meter->ea ?? 7));
+        $tct = \App\Models\VendingSetting::getValue('vending_tct', 1);
+        $ken = \App\Models\VendingSetting::getValue('vending_ken', (int) ($meter->ken ?? 255));
+
+        return new \Prism\PrismToken1\MeterConfigIn([
+            'drn' => $meter->meter_number,
+            'sgc' => (int) $sgc,
+            'krn' => (int) $krn,
+            'ti'  => (int) $ti,
+            'ea'  => (int) $ea,
+            'tct' => (int) $tct,
+            'ken' => (int) $ken,
+            'allowKrnUpdate' => false,
+        ]);
     }
 
     /**

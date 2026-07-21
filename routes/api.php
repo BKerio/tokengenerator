@@ -84,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('admin/enquiries', ContactEnquiryController::class)->except(['store']);
 
     // Token Vending
+    Route::get('tokens/meter-lookup', [TokenController::class, 'meterLookup']);
     Route::post('tokens/generate', [TokenController::class, 'generate']);
     
     // System Monitoring & Oversight

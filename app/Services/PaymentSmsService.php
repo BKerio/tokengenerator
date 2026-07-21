@@ -109,6 +109,52 @@ class PaymentSmsService
     }
 
     /**
+     * Send an SMS for manually generated tokens from admin/vendor/landlord portals.
+     */
+    public function sendManualTokenMessage(string $phone, \App\Models\Meter $meter, array $tokens, array $meta = []): bool
+    {
+        try {
+            $phoneNumber = $this->normalizePhoneNumber($phone);
+
+            if (!$phoneNumber) {
+                Log::warning('Cannot send manual token SMS: invalid phone number', [
+                    'phone' => $phone,
+                    'meter_id' => $meter->id ?? null,
+                ]);
+                return false;
+            }
+
+            $message = $this->generateManualTokenMessage($meter, $tokens, $meta);
+            $vendorConfig = null;
+            if ($meter->vendor) {
+                $vendorConfig = $meter->vendor->smsConfig ? $meter->vendor->smsConfig->toArray() : ($meter->vendor->sms_config ?: null);
+            }
+
+            $success = $this->smsService->sendSms($phoneNumber, $message, $vendorConfig);
+
+            if ($success) {
+                Log::info('Manual token SMS sent successfully', [
+                    'phone' => $phoneNumber,
+                    'meter_id' => $meter->id ?? null,
+                    'token_type' => $meta['token_type'] ?? 'credit',
+                ]);
+            } else {
+                Log::error('Failed to send manual token SMS', [
+                    'phone' => $phoneNumber,
+                    'meter_id' => $meter->id ?? null,
+                ]);
+            }
+
+            return $success;
+        } catch (\Throwable $e) {
+            Log::error('Manual token SMS service error: ' . $e->getMessage(), [
+                'meter_id' => $meter->id ?? null,
+            ]);
+            return false;
+        }
+    }
+
+    /**
      * Build a generic payment confirmation message.
      */
     protected function generatePaymentMessage(Payment $payment): string
@@ -164,6 +210,47 @@ class PaymentSmsService
               $message .= "OtherCharges: " . number_format($otherCharges, 2) . "\n";
               $message .= "\nFor details dial *367*878#";
               $message .= "\nBest Regards,\nTokenPAP System";
+
+        return $message;
+    }
+
+    protected function generateManualTokenMessage(\App\Models\Meter $meter, array $tokens, array $meta): string
+    {
+        $tokenType = $meta['token_type'] ?? 'credit';
+        $amount = isset($meta['amount']) ? (float) $meta['amount'] : null;
+        $units = isset($meta['units']) ? (float) $meta['units'] : null;
+
+        $message = $tokenType === 'credit'
+            ? "Token generated successfully\n\n"
+            : "Control token generated successfully\n\n";
+
+        $message .= "Mtr: {$meter->meter_number}\n";
+
+        foreach ($tokens as $token) {
+            $formattedToken = trim(chunk_split((string) $token, 4, '-'), '-');
+            $message .= "Token: {$formattedToken}\n";
+        }
+
+        $message .= "Date: " . date('Ymd H:i') . "\n";
+
+        if ($meta['transaction_id'] ?? null) {
+            $message .= "TxnID: {$meta['transaction_id']}\n";
+        }
+
+        if ($tokenType === 'credit') {
+            if ($units !== null) {
+                $message .= "Units: " . number_format($units, 1) . "\n";
+            }
+            if ($amount !== null) {
+                $message .= "Amt: " . number_format($amount, 2) . "\n";
+            }
+        } elseif ($tokenType === 'set_max_overdraft' && isset($meta['control_value'])) {
+            $message .= "Overdraft: {$meta['control_value']}\n";
+        } else {
+            $message .= "Type: " . strtoupper(str_replace('_', ' ', $tokenType)) . "\n";
+        }
+
+        $message .= "\nBest Regards,\nTokenPAP System";
 
         return $message;
     }
